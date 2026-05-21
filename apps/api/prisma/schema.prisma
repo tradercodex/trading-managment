@@ -1,0 +1,94 @@
+// Prisma schema — User / Role / Permission (RBAC)
+// Docs: https://www.prisma.io/nestjs
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Users
+// ─────────────────────────────────────────────────────────────
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String?
+  passwordHash String
+  isActive     Boolean  @default(true)
+
+  roles        UserRole[]
+  refreshTokens RefreshToken[]
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([email])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Refresh tokens (rotation-friendly)
+// We store a hash of the token so a DB leak doesn't expose live tokens.
+// ─────────────────────────────────────────────────────────────
+model RefreshToken {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Roles & Permissions (many-to-many on both sides)
+// ─────────────────────────────────────────────────────────────
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique           // e.g. "admin", "manager", "user"
+  description String?
+
+  users       UserRole[]
+  permissions RolePermission[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Permission {
+  id          String   @id @default(cuid())
+  // Convention: "<resource>:<action>" e.g. "user:read", "user:write", "trade:execute"
+  key         String   @unique
+  description String?
+
+  roles       RolePermission[]
+
+  createdAt   DateTime @default(now())
+}
+
+model UserRole {
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  roleId String
+
+  assignedAt DateTime @default(now())
+
+  @@id([userId, roleId])
+  @@index([roleId])
+}
+
+model RolePermission {
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  roleId       String
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  permissionId String
+
+  @@id([roleId, permissionId])
+  @@index([permissionId])
+}
