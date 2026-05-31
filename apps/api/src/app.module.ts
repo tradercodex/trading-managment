@@ -4,6 +4,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
+import { ConfigurationModule } from './configuration/configuration.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
 import { PermissionsGuard } from './auth/guards/permissions.guard';
@@ -17,6 +18,7 @@ import { PermissionsGuard } from './auth/guards/permissions.guard';
     PrismaModule,
     AuthModule,
     UsersModule,
+    ConfigurationModule,
   ],
   providers: [
     // Global guards run in order: authenticate → role → permission

@@ -176,6 +176,62 @@ This will drop the new primitive into `apps/web/components/ui/`.
 
 ---
 
+## Configuration module (NEW)
+
+A full **Configuration** area was added — sidebar item `Configuration` opens a 6-tab page that mirrors the Tax Lot Manager reference:
+
+| Tab | Backend endpoints | Write permission |
+| --- | --- | --- |
+| 👤 User Management | `GET/POST/PATCH/DELETE /api/users` | `user:write` (`user:delete` for delete) |
+| 🏢 Fund Detail | `…/api/configuration/funds` | `fund:write` |
+| 🏦 Custodian | `…/api/configuration/custodians` (api/secret/passphrase masked on read) | `custodian:write` |
+| 🗂️ Asset Class | `…/api/configuration/asset-classes` | `assetclass:write` |
+| 📌 Pre Define | `…/api/configuration/pre-defines` | `predefine:write` |
+| 📒 Chart of Accounts | `…/api/configuration/chart-of-accounts` | `coa:write` |
+
+All read endpoints require `config:read`. The seed populates a few sample funds, custodians, asset classes, pre-defines and chart-of-account rows so the tables aren't empty on first run.
+
+User Management has 4 inner sub-tabs (Basic Info · Access & Roles · Status · Fund Allocated) matching the reference. The Add-User dialog has a tabbed form (Basic Info / Access & Roles / Fund Allocation) that drives a single `POST /api/users` payload — `username`, `fullName`, `employeeId`, `status`, `modules[]`, `roleName`, `fundIds[]`.
+
+## UI redesign (NEW)
+
+- **Login page** — full-bleed dark gradient with three animated `framer-motion` blobs, a gradient-bordered card, motion fade-ins on each field, and a gradient sign-in button. Demo accounts are listed inside the card for one-click testing.
+- **Dashboard** — full **shadcn-style sidebar** (`Dashboard, Configuration, Investor, Valuation, Trading, Accounting, Reports`) with a collapsible chevron toggle in the header. User profile dropdown lives in the sidebar footer (matches the reference).
+- **Dashboard home** — gradient stat tiles (Total Trades, Open Tax Lots, Total Notional, Fund Valuation) animated with a staggered entrance.
+
+## File map of new code
+
+```
+apps/api/src/configuration/
+├── configuration.module.ts
+├── funds/                {controller, service, dto}
+├── custodians/           {controller, service, dto}
+├── asset-classes/        {controller, service, dto}
+├── pre-defines/          {controller, service, dto}
+└── chart-of-accounts/    {controller, service, dto}
+
+apps/web/app/dashboard/
+├── configuration/page.tsx        # 6-tab page
+├── investor|valuation|trading|accounting|reports/page.tsx   # placeholders
+└── (others)
+
+apps/web/components/
+├── dashboard-sidebar.tsx         # shadcn-style sidebar with user dropdown
+├── coming-soon.tsx
+├── config/
+│   ├── user-mgmt-panel.tsx       # tabs + Add-User dialog
+│   ├── fund-detail-panel.tsx
+│   ├── custodian-panel.tsx
+│   ├── asset-class-panel.tsx
+│   ├── pre-define-panel.tsx
+│   ├── chart-of-accounts-panel.tsx
+│   └── data-toolbar.tsx
+└── ui/                           # sidebar, tabs, dialog, select, dropdown-menu, avatar,
+                                  # tooltip, separator, table, button, input, label, card, badge
+
+apps/web/lib/config-api.ts        # typed API helpers for every config entity
+```
+
 ## Next things to wire up
 
 - Email verification + password reset flows.

@@ -1,7 +1,8 @@
-import { Body, Controller, Get, Param, Patch } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
 import { UsersService } from './users.service';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { CreateUserDto, UpdateUserDto } from './dto';
 import { Permissions } from '../auth/decorators/permissions.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/auth.service';
 
@@ -9,37 +10,45 @@ import type { JwtPayload } from '../auth/auth.service';
 export class UsersController {
   constructor(private readonly users: UsersService) {}
 
-  /** Anyone authenticated can read their own profile */
   @Get('me')
   me(@CurrentUser() user: JwtPayload) {
-    return this.users.findOne(user.sub);
+    return this.users.get(user.sub);
   }
 
-  /** Admin OR users with `user:read` may list */
   @Get()
   @Permissions('user:read')
   list() {
-    return this.users.findAll();
+    return this.users.list();
   }
 
   @Get(':id')
   @Permissions('user:read')
   get(@Param('id') id: string) {
-    return this.users.findOne(id);
+    return this.users.get(id);
   }
 
-  /** Only admins can assign roles */
-  @Patch(':id/role')
-  @Roles('admin')
-  @Permissions('role:manage')
-  assignRole(@Param('id') id: string, @Body() body: { role: string }) {
-    return this.users.assignRole(id, body.role);
+  @Post()
+  @Permissions('user:write')
+  create(@Body() dto: CreateUserDto, @CurrentUser() me: JwtPayload) {
+    return this.users.create(dto, me?.email);
   }
 
-  /** Activate / deactivate a user — requires user:write */
+  @Patch(':id')
+  @Permissions('user:write')
+  update(@Param('id') id: string, @Body() dto: UpdateUserDto) {
+    return this.users.update(id, dto);
+  }
+
   @Patch(':id/active')
   @Permissions('user:write')
   setActive(@Param('id') id: string, @Body() body: { isActive: boolean }) {
     return this.users.setActive(id, body.isActive);
+  }
+
+  @Delete(':id')
+  @Roles('admin')
+  @Permissions('user:delete')
+  remove(@Param('id') id: string) {
+    return this.users.remove(id);
   }
 }

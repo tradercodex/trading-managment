@@ -1,59 +1,41 @@
 'use client';
 
-import Link from 'next/link';
 import { Protected } from '@/components/protected';
-import { useAuth } from '@/components/auth-provider';
-import { Button } from '@/components/ui/button';
-import { hasRole, hasAnyPermission } from '@/lib/rbac';
+import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
+import { DashboardSidebar } from '@/components/dashboard-sidebar';
+import { Separator } from '@/components/ui/separator';
+import { usePathname } from 'next/navigation';
+
+const titles: Record<string, string> = {
+  '/dashboard': 'Dashboard',
+  '/dashboard/configuration': 'Configuration',
+  '/dashboard/investor': 'Investor',
+  '/dashboard/valuation': 'Valuation',
+  '/dashboard/trading': 'Trading',
+  '/dashboard/accounting': 'Accounting',
+  '/dashboard/reports': 'Reports',
+};
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname() || '/dashboard';
+  const title =
+    titles[pathname] ??
+    Object.entries(titles).find(([k]) => pathname.startsWith(k))?.[1] ??
+    'Dashboard';
+
   return (
     <Protected>
-      <DashboardShell>{children}</DashboardShell>
+      <SidebarProvider>
+        <DashboardSidebar />
+        <SidebarInset>
+          <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b bg-background/80 px-4 backdrop-blur">
+            <SidebarTrigger />
+            <Separator orientation="vertical" className="mx-1 h-6" />
+            <h1 className="text-sm font-medium text-muted-foreground">{title}</h1>
+          </header>
+          <main className="flex-1 bg-muted/30 p-6">{children}</main>
+        </SidebarInset>
+      </SidebarProvider>
     </Protected>
-  );
-}
-
-function DashboardShell({ children }: { children: React.ReactNode }) {
-  const { user, logout } = useAuth();
-
-  return (
-    <div className="min-h-screen">
-      <header className="border-b bg-card">
-        <div className="container mx-auto flex h-14 items-center justify-between">
-          <nav className="flex items-center gap-4">
-            <Link href="/dashboard" className="font-semibold">
-              Trading
-            </Link>
-            <Link href="/dashboard" className="text-sm text-muted-foreground hover:text-foreground">
-              Overview
-            </Link>
-            {hasAnyPermission(user, 'user:read') && (
-              <Link
-                href="/dashboard/users"
-                className="text-sm text-muted-foreground hover:text-foreground"
-              >
-                Users
-              </Link>
-            )}
-            {hasRole(user, 'admin') && (
-              <Link
-                href="/dashboard/admin"
-                className="text-sm text-muted-foreground hover:text-foreground"
-              >
-                Admin
-              </Link>
-            )}
-          </nav>
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-muted-foreground">{user?.email}</span>
-            <Button variant="outline" size="sm" onClick={logout}>
-              Sign out
-            </Button>
-          </div>
-        </div>
-      </header>
-      <main className="container mx-auto p-6">{children}</main>
-    </div>
   );
 }

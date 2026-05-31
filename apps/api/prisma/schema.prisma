@@ -1,5 +1,5 @@
-// Prisma schema — User / Role / Permission (RBAC)
-// Docs: https://www.prisma.io/nestjs
+// Prisma schema — User / Role / Permission (RBAC) + Configuration entities
+// Reference fields lifted from Tax Lot Manager reference (Configuration tab).
 
 generator client {
   provider = "prisma-client-js"
@@ -11,28 +11,37 @@ datasource db {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Users
+// Users (extended for User Management screens)
 // ─────────────────────────────────────────────────────────────
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
-  name         String?
+  username     String?  @unique
+  fullName     String?
+  employeeId   String?  @unique
   passwordHash String
+  status       UserStatus @default(ACTIVE)
+  modules      String[]   @default([])
   isActive     Boolean  @default(true)
+  createdBy    String?
 
-  roles        UserRole[]
-  refreshTokens RefreshToken[]
+  roles            UserRole[]
+  refreshTokens    RefreshToken[]
+  fundAllocations  UserFundAllocation[]
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   @@index([email])
+  @@index([username])
 }
 
-// ─────────────────────────────────────────────────────────────
-// Refresh tokens (rotation-friendly)
-// We store a hash of the token so a DB leak doesn't expose live tokens.
-// ─────────────────────────────────────────────────────────────
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  LOCKED
+}
+
 model RefreshToken {
   id        String   @id @default(cuid())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -46,11 +55,11 @@ model RefreshToken {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Roles & Permissions (many-to-many on both sides)
+// Roles & Permissions
 // ─────────────────────────────────────────────────────────────
 model Role {
   id          String   @id @default(cuid())
-  name        String   @unique           // e.g. "admin", "manager", "user"
+  name        String   @unique
   description String?
 
   users       UserRole[]
@@ -62,12 +71,10 @@ model Role {
 
 model Permission {
   id          String   @id @default(cuid())
-  // Convention: "<resource>:<action>" e.g. "user:read", "user:write", "trade:execute"
-  key         String   @unique
+  key         String   @unique           // e.g. "fund:write"
   description String?
 
   roles       RolePermission[]
-
   createdAt   DateTime @default(now())
 }
 
@@ -91,4 +98,119 @@ model RolePermission {
 
   @@id([roleId, permissionId])
   @@index([permissionId])
+}
+
+// ═════════════════════════════════════════════════════════════
+// CONFIGURATION ENTITIES
+// ═════════════════════════════════════════════════════════════
+
+// ── Fund Detail ──
+enum RankingMethod {
+  FIFO
+  LIFO
+  MFIFO
+}
+
+model Fund {
+  id                String         @id @default(cuid())
+  amcName           String
+  fundName          String         @unique
+  reportingCurrency String         @default("USD")
+  rankingMethod     RankingMethod  @default(FIFO)
+
+  custodians        Custodian[]
+  userAllocations   UserFundAllocation[]
+
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+}
+
+// ── Custodian (per fund) ──
+model Custodian {
+  id                String   @id @default(cuid())
+  fund              Fund?    @relation(fields: [fundId], references: [id], onDelete: SetNull)
+  fundId            String?
+  fundName          String   // denormalised label for display
+  custodianName     String
+  accountNumber     String
+  reportingCurrency String   @default("USD")
+  // Secrets — store ciphertext or hash in production. For demo, we keep as-is.
+  apiKey            String?
+  secretKey         String?
+  passphrase        String?
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([fundId])
+  @@index([accountNumber])
+}
+
+// ── Asset Class ──
+enum PrimaryAssetClass {
+  EQUITIES
+  FUTURES
+  OPTIONS
+  CRYPTOCURRENCIES
+  FIXED_INCOME
+}
+
+model AssetClass {
+  id              String             @id @default(cuid())
+  primary         PrimaryAssetClass
+  secondary       String
+  valuationSource String
+
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@unique([primary, secondary])
+}
+
+// ── Pre Define (lookup values) ──
+model PreDefine {
+  id          String   @id @default(cuid())
+  category    String   // e.g. "Trade Type"
+  code        String   // e.g. "TRD-001"
+  label       String
+  description String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([category, code])
+}
+
+// ── Chart of Accounts ──
+enum AccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+}
+
+model ChartOfAccount {
+  id          String      @id @default(cuid())
+  code        String      @unique // e.g. "1000"
+  name        String
+  type        AccountType
+  parentCode  String?
+  currency    String      @default("USD")
+  description String?
+
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+// ── Junction: which user is allocated to which fund ──
+model UserFundAllocation {
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+  fund        Fund     @relation(fields: [fundId], references: [id], onDelete: Cascade)
+  fundId      String
+  assignedAt  DateTime @default(now())
+
+  @@id([userId, fundId])
+  @@index([fundId])
 }
