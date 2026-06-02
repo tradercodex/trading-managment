@@ -78,6 +78,9 @@ export function buildCorsOptions(raw: string | undefined): CorsOptions {
     if (cfg.origins.includes(origin)) return callback(null, true);
     if (cfg.matchers.some((re) => re.test(origin))) return callback(null, true);
 
+    // Always allow Vercel preview deployments
+    if (origin.endsWith('.vercel.app')) return callback(null, true);
+
     return callback(new Error(`CORS: origin ${origin} not allowed`), false);
   };
 
