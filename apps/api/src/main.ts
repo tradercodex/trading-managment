@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
+import { buildCorsOptions } from './common/cors';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -12,10 +13,9 @@ async function bootstrap() {
   app.use(helmet());
   app.use(cookieParser());
 
-  app.enableCors({
-    origin: config.get<string>('CORS_ORIGIN', 'http://localhost:3000'),
-    credentials: true,
-  });
+  // Robust CORS — supports comma-separated list and wildcard origins
+  // (e.g. CORS_ORIGIN="https://my-app.vercel.app,https://*.vercel.app").
+  app.enableCors(buildCorsOptions(config.get<string>('CORS_ORIGIN')));
 
   app.setGlobalPrefix('api');
 

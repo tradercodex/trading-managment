@@ -73,10 +73,14 @@ export class AuthController {
 
   // ─────────── helpers ───────────
   private setRefreshCookie(res: Response, refreshToken: string) {
+    // In production the frontend and API are usually on different domains
+    // (e.g. web.vercel.app + api.vercel.app). Cross-site cookies require
+    // SameSite=None + Secure or the browser drops them silently.
+    const isProd = process.env.NODE_ENV === 'production';
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
+      sameSite: isProd ? 'none' : 'lax',
+      secure: isProd,
       path: '/api/auth',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7d
     });
