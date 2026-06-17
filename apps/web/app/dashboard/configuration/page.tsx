@@ -1,6 +1,6 @@
 'use client';
 
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { UserMgmtPanel } from '@/components/config/user-mgmt-panel';
 import { FundDetailPanel } from '@/components/config/fund-detail-panel';
@@ -32,18 +32,14 @@ export default function ConfigurationPage() {
       {tabs.map((t) => {
         const Panel = t.component;
         return (
-          <TabsContent key={t.value} value={t.value} forceMount>
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={t.value}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.2 }}
-              >
-                <Panel />
-              </motion.div>
-            </AnimatePresence>
+          <TabsContent key={t.value} value={t.value}>
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              <Panel />
+            </motion.div>
           </TabsContent>
         );
       })}

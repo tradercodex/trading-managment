@@ -20,6 +20,12 @@ const PERMISSIONS = [
   { key: 'assetclass:write', description: 'Manage asset classes' },
   { key: 'predefine:write', description: 'Manage pre-define lookups' },
   { key: 'coa:write', description: 'Manage chart of accounts' },
+  // Investor
+  { key: 'investor:read', description: 'View investors' },
+  { key: 'investor:write', description: 'Create / update investors' },
+  // Valuation
+  { key: 'valuation:read', description: 'View valuation data' },
+  { key: 'valuation:write', description: 'Create / update valuation data' },
 ];
 
 const ROLES: Record<string, { description: string; permissions: string[] }> = {
@@ -40,11 +46,15 @@ const ROLES: Record<string, { description: string; permissions: string[] }> = {
       'assetclass:write',
       'predefine:write',
       'coa:write',
+      'investor:read',
+      'investor:write',
+      'valuation:read',
+      'valuation:write',
     ],
   },
   user: {
     description: 'Standard end-user',
-    permissions: ['trade:read', 'config:read'],
+    permissions: ['trade:read', 'config:read', 'investor:read', 'valuation:read'],
   },
 };
 
@@ -183,6 +193,106 @@ async function main() {
       where: { code },
       update: { name, type },
       create: { code, name, type, currency: 'USD' },
+    });
+  }
+
+  // ── Investor sample ──
+  console.log('Seeding sample investor…');
+  const investor = await prisma.investor.upsert({
+    where: { investorId: 'INV-A3F9K2' },
+    update: {},
+    create: {
+      investorId: 'INV-A3F9K2',
+      fullName: 'John William Doe',
+      dateOfBirth: new Date('1985-04-12'),
+      entityType: 'INDIVIDUAL',
+      ssnTin: 'XXX-XX-1234',
+      email: 'john.doe@example.com',
+      phone: '+1 (555) 000-1234',
+    },
+  });
+  await prisma.investorKyc.upsert({
+    where: { investorId: investor.id },
+    update: {},
+    create: {
+      investorId: investor.id,
+      primaryAddress: '123 Main Street, Apt 4B',
+      mailingAddress: 'P.O. Box 789',
+      cityStateZip: 'New York, NY 10001',
+      country: 'United States',
+      citizenship: 'US Citizen',
+      taxResidency: 'USA',
+    },
+  });
+  await prisma.investorTax.upsert({
+    where: { investorId: investor.id },
+    update: {},
+    create: {
+      investorId: investor.id,
+      tinSsnEin: '12-3456789',
+      w9Status: 'SUBMITTED',
+      fatca: 'US_PERSON',
+      backupWithholding: false,
+    },
+  });
+
+  // ── Valuation sample ──
+  console.log('Seeding valuation data…');
+  const securities = [
+    { smId: 'SM-000001', type: 'CRYPTO', ticker: 'USDT', name: 'Tether', assetClass: 'Cryptocurrencies', exchange: 'Binance', currency: 'USD', source: 'CoinMarketCap', sourceId: 'CMC-825' },
+    { smId: 'SM-000002', type: 'CRYPTO', ticker: 'BTC',  name: 'Bitcoin', assetClass: 'Cryptocurrencies', exchange: 'Binance', currency: 'USD', source: 'CoinMarketCap', sourceId: 'CMC-1'   },
+    { smId: 'SM-000003', type: 'CRYPTO', ticker: 'ETH',  name: 'Ethereum', assetClass: 'Cryptocurrencies', exchange: 'Binance', currency: 'USD', source: 'CoinMarketCap', sourceId: 'CMC-1027' },
+  ] as const;
+  for (const s of securities) {
+    await prisma.security.upsert({
+      where: { ticker_currency: { ticker: s.ticker, currency: s.currency } },
+      update: { name: s.name, assetClass: s.assetClass, exchange: s.exchange, valuationSource: s.source, valuationSourceId: s.sourceId },
+      create: {
+        smId: s.smId,
+        type: s.type,
+        ticker: s.ticker,
+        name: s.name,
+        assetClass: s.assetClass,
+        exchange: s.exchange,
+        currency: s.currency,
+        valuationSource: s.source,
+        valuationSourceId: s.sourceId,
+      },
+    });
+  }
+
+  const priceDate = new Date();
+  priceDate.setHours(0, 0, 0, 0);
+  const prices = [
+    { ticker: 'USDT', name: 'Tether',   assetClass: 'Cryptocurrencies', price: 1.001,  source: 'CoinMarketCap', sourceId: 'CMC-825'  },
+    { ticker: 'BTC',  name: 'Bitcoin',  assetClass: 'Cryptocurrencies', price: 62000,  source: 'CoinMarketCap', sourceId: 'CMC-1'    },
+    { ticker: 'ETH',  name: 'Ethereum', assetClass: 'Cryptocurrencies', price: 3100,   source: 'CoinMarketCap', sourceId: 'CMC-1027' },
+  ];
+  for (const p of prices) {
+    await prisma.marketPrice.upsert({
+      where: {
+        ticker_priceDate_currency: { ticker: p.ticker, priceDate, currency: 'USD' },
+      },
+      update: { price: p.price, name: p.name, assetClass: p.assetClass, source: p.source, sourceId: p.sourceId },
+      create: { ...p, currency: 'USD', priceDate },
+    });
+  }
+
+  const rateDate = priceDate;
+  const fx = [
+    { currency: 'USD', symbol: '$', rate: 1 },
+    { currency: 'EUR', symbol: '€', rate: 1.08 },
+    { currency: 'GBP', symbol: '£', rate: 1.27 },
+    { currency: 'JPY', symbol: '¥', rate: 0.0067 },
+    { currency: 'BTC', symbol: '₿', rate: 62000 },
+    { currency: 'ETH', symbol: 'Ξ', rate: 3100 },
+    { currency: 'USDT', symbol: '₮', rate: 1.001 },
+  ];
+  for (const r of fx) {
+    await prisma.exchangeRate.upsert({
+      where: { currency_rateDate: { currency: r.currency, rateDate } },
+      update: { rate: r.rate, symbol: r.symbol, source: 'Static FX (seed)', sourceId: r.currency },
+      create: { ...r, rateDate, source: 'Static FX (seed)', sourceId: r.currency },
     });
   }
 

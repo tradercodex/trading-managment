@@ -132,3 +132,140 @@ export const usersApi = {
     api<ManagedUser>('/api/users', { method: 'POST', body: JSON.stringify(body) }),
   remove: (id: string) => api<{ success: true }>(`/api/users/${id}`, { method: 'DELETE' }),
 };
+
+// ═══════════════════════════════════════════════════════════════
+// INVESTOR API
+// ═══════════════════════════════════════════════════════════════
+export type InvestorEntityType = 'INDIVIDUAL' | 'LLC' | 'CORPORATION' | 'TRUST' | 'PARTNERSHIP';
+export type FormStatus = 'SUBMITTED' | 'PENDING' | 'NOT_REQUIRED' | 'EXPIRED';
+export type W8Status =
+  | 'W8BEN_SUBMITTED'
+  | 'W8BENE_SUBMITTED'
+  | 'PENDING'
+  | 'NOT_REQUIRED'
+  | 'EXPIRED';
+export type FatcaClassification =
+  | 'US_PERSON'
+  | 'NON_US_INDIVIDUAL'
+  | 'PFFI'
+  | 'NPFFI'
+  | 'EXEMPT';
+
+export interface InvestorKyc {
+  primaryAddress: string;
+  mailingAddress?: string | null;
+  cityStateZip: string;
+  country: string;
+  citizenship: string;
+  taxResidency?: string | null;
+}
+
+export interface InvestorTax {
+  tinSsnEin?: string | null;
+  w9Status?: FormStatus | null;
+  w8Status?: W8Status | null;
+  fatca?: FatcaClassification | null;
+  backupWithholding?: boolean;
+}
+
+export interface Investor {
+  id: string;
+  investorId: string;
+  fullName: string;
+  dateOfBirth?: string | null;
+  entityType: InvestorEntityType;
+  ssnTin?: string | null;
+  email: string;
+  phone?: string | null;
+  kyc: InvestorKyc | null;
+  tax: InvestorTax | null;
+  createdAt: string;
+}
+
+export interface CreateInvestorPayload {
+  fullName: string;
+  dateOfBirth?: string;
+  entityType: InvestorEntityType;
+  ssnTin?: string;
+  email: string;
+  phone?: string;
+  kyc?: InvestorKyc;
+  tax?: InvestorTax;
+}
+
+export const investorsApi = {
+  list: (search?: string) =>
+    api<Investor[]>(`/api/investors${search ? `?search=${encodeURIComponent(search)}` : ''}`),
+  create: (body: CreateInvestorPayload) =>
+    api<Investor>('/api/investors', { method: 'POST', body: JSON.stringify(body) }),
+  update: (id: string, body: Partial<CreateInvestorPayload>) =>
+    api<Investor>(`/api/investors/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  remove: (id: string) =>
+    api<{ success: true }>(`/api/investors/${id}`, { method: 'DELETE' }),
+};
+
+// ═══════════════════════════════════════════════════════════════
+// VALUATION API — Securities Master, Market Prices, Exchange Rates
+// ═══════════════════════════════════════════════════════════════
+export type SecurityType = 'EQUITY' | 'FUTURE' | 'OPTION' | 'CRYPTO' | 'BOND' | 'CASH' | 'OTHER';
+
+export interface Security {
+  id: string;
+  smId: string;
+  type: SecurityType;
+  ticker: string;
+  name: string;
+  assetClass: string;
+  exchange?: string | null;
+  currency: string;
+  multiplier: string | number;
+  valuationSource?: string | null;
+  valuationSourceId?: string | null;
+}
+
+export interface MarketPrice {
+  id: string;
+  securityId?: string | null;
+  ticker: string;
+  name: string;
+  assetClass: string;
+  currency: string;
+  price: string | number;
+  priceDate: string;
+  source?: string | null;
+  sourceId?: string | null;
+}
+
+export interface ExchangeRate {
+  id: string;
+  currency: string;
+  symbol?: string | null;
+  rate: string | number;
+  rateDate: string;
+  source?: string | null;
+  sourceId?: string | null;
+}
+
+export const securitiesApi = {
+  list: () => api<Security[]>('/api/valuation/securities'),
+  create: (body: Omit<Security, 'id' | 'smId'>) =>
+    api<Security>('/api/valuation/securities', { method: 'POST', body: JSON.stringify(body) }),
+  remove: (id: string) =>
+    api<{ success: true }>(`/api/valuation/securities/${id}`, { method: 'DELETE' }),
+};
+
+export const marketPricesApi = {
+  list: () => api<MarketPrice[]>('/api/valuation/market-prices'),
+  create: (body: Omit<MarketPrice, 'id' | 'securityId'>) =>
+    api<MarketPrice>('/api/valuation/market-prices', { method: 'POST', body: JSON.stringify(body) }),
+  remove: (id: string) =>
+    api<{ success: true }>(`/api/valuation/market-prices/${id}`, { method: 'DELETE' }),
+};
+
+export const exchangeRatesApi = {
+  list: () => api<ExchangeRate[]>('/api/valuation/exchange-rates'),
+  create: (body: Omit<ExchangeRate, 'id'>) =>
+    api<ExchangeRate>('/api/valuation/exchange-rates', { method: 'POST', body: JSON.stringify(body) }),
+  remove: (id: string) =>
+    api<{ success: true }>(`/api/valuation/exchange-rates/${id}`, { method: 'DELETE' }),
+};

@@ -214,3 +214,169 @@ model UserFundAllocation {
   @@id([userId, fundId])
   @@index([fundId])
 }
+
+// ═════════════════════════════════════════════════════════════
+// INVESTOR ENTITIES (Investor Management — Basic / KYC / Tax)
+// ═════════════════════════════════════════════════════════════
+
+enum InvestorEntityType {
+  INDIVIDUAL
+  LLC
+  CORPORATION
+  TRUST
+  PARTNERSHIP
+}
+
+enum FormStatus {
+  SUBMITTED
+  PENDING
+  NOT_REQUIRED
+  EXPIRED
+}
+
+enum W8Status {
+  W8BEN_SUBMITTED
+  W8BENE_SUBMITTED
+  PENDING
+  NOT_REQUIRED
+  EXPIRED
+}
+
+enum FatcaClassification {
+  US_PERSON
+  NON_US_INDIVIDUAL
+  PFFI
+  NPFFI
+  EXEMPT
+}
+
+model Investor {
+  id           String              @id @default(cuid())
+  // Auto-generated business key e.g. "INV-A3F9K2"
+  investorId   String              @unique
+  fullName     String
+  dateOfBirth  DateTime?
+  entityType   InvestorEntityType
+  // Stored verbatim for demo; in production encrypt or hash partial.
+  ssnTin       String?
+  email        String              @unique
+  phone        String?
+
+  kyc          InvestorKyc?
+  tax          InvestorTax?
+
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  @@index([fullName])
+}
+
+model InvestorKyc {
+  id                String   @id @default(cuid())
+  investor          Investor @relation(fields: [investorId], references: [id], onDelete: Cascade)
+  investorId        String   @unique
+
+  primaryAddress    String
+  mailingAddress    String?
+  cityStateZip      String
+  country           String
+  citizenship       String
+  taxResidency      String?
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model InvestorTax {
+  id                   String               @id @default(cuid())
+  investor             Investor             @relation(fields: [investorId], references: [id], onDelete: Cascade)
+  investorId           String               @unique
+
+  tinSsnEin            String?
+  w9Status             FormStatus?
+  w8Status             W8Status?
+  fatca                FatcaClassification?
+  backupWithholding    Boolean              @default(false)
+
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+}
+
+// ═════════════════════════════════════════════════════════════
+// VALUATION ENTITIES — Securities, Market Prices, Exchange Rates
+// ═════════════════════════════════════════════════════════════
+
+enum SecurityType {
+  EQUITY
+  FUTURE
+  OPTION
+  CRYPTO
+  BOND
+  CASH
+  OTHER
+}
+
+model Security {
+  id              String   @id @default(cuid())
+  // Internal SM ID (e.g. "SM-000001"); auto-generated
+  smId            String   @unique
+  type            SecurityType
+  ticker          String
+  name            String
+  assetClass      String   // free-text label (e.g. "Cryptocurrencies")
+  exchange        String?
+  currency        String   @default("USD")
+  multiplier      Decimal  @default(1) @db.Decimal(20, 8)
+  valuationSource String?
+  valuationSourceId String?
+
+  marketPrices    MarketPrice[]
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([ticker, currency])
+  @@index([ticker])
+}
+
+model MarketPrice {
+  id           String   @id @default(cuid())
+  security     Security? @relation(fields: [securityId], references: [id], onDelete: SetNull)
+  securityId   String?
+
+  // Denormalised display fields so a price row doesn't strictly require a Security row
+  ticker       String
+  name         String
+  assetClass   String
+  currency     String   @default("USD")
+
+  price        Decimal  @db.Decimal(28, 10)
+  priceDate    DateTime
+  source       String?
+  sourceId     String?
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([ticker, priceDate, currency])
+  @@index([ticker])
+  @@index([priceDate])
+}
+
+model ExchangeRate {
+  id           String   @id @default(cuid())
+  // ISO code e.g. "USD", or crypto "BTC" — quoted against base currency (USD)
+  currency     String
+  symbol       String?  // optional friendly symbol e.g. "$"
+  rate         Decimal  @db.Decimal(28, 10)
+  rateDate     DateTime
+  source       String?
+  sourceId     String?
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([currency, rateDate])
+  @@index([currency])
+  @@index([rateDate])
+}
